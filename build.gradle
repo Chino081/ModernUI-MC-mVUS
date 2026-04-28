@@ -290,14 +290,18 @@ def releaseDir = layout.buildDirectory.dir("release")
 def releaseModVersion = mod_version
 
 def fabricProject = project(':ModernUI-Fabric')
-def forgeProject = project(':ModernUI-Forge')
-def neoForgeProject = project(':ModernUI-NeoForge')
-def supportsForge = rootProject.modernUiMcProfile.forge != null
-def supportsNeoForge = rootProject.modernUiMcProfile.neoforge != null
+def forgeProject = findProject(':ModernUI-Forge')
+def neoForgeProject = findProject(':ModernUI-NeoForge')
+def supportsForge = forgeProject != null && rootProject.modernUiMcProfile.forge != null
+def supportsNeoForge = neoForgeProject != null && rootProject.modernUiMcProfile.neoforge != null
 
 def fabricUniversalJar = fabricProject.layout.buildDirectory.file("libs/${fabricProject.name}-${releaseModVersion}-universal.jar")
-def forgeUniversalJar = forgeProject.layout.buildDirectory.file("libs/${forgeProject.name}-${releaseModVersion}-universal.jar")
-def neoForgeUniversalJar = neoForgeProject.layout.buildDirectory.file("libs/${neoForgeProject.name}-${releaseModVersion}-universal.jar")
+def forgeUniversalJar = supportsForge
+        ? forgeProject.layout.buildDirectory.file("libs/${forgeProject.name}-${releaseModVersion}-universal.jar")
+        : null
+def neoForgeUniversalJar = supportsNeoForge
+        ? neoForgeProject.layout.buildDirectory.file("libs/${neoForgeProject.name}-${releaseModVersion}-universal.jar")
+        : null
 
 tasks.register('syncReleaseJars', Sync) {
     group = 'distribution'

@@ -19,7 +19,9 @@
 package icyllis.modernui.mc;
 
 import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.pipeline.RenderPipeline;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.VertexConsumer;
 import icyllis.arc3d.core.MathUtil;
 import icyllis.modernui.graphics.Color;
 import icyllis.modernui.mc.mixin.AccessClientTextTooltip;
@@ -31,6 +33,7 @@ import net.minecraft.client.gui.navigation.ScreenRectangle;
 import net.minecraft.client.gui.render.TextureSetup;
 import net.minecraft.client.gui.screens.inventory.tooltip.*;
 import net.minecraft.client.renderer.*;
+import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
 import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.util.*;
@@ -745,6 +748,13 @@ public final class TooltipRenderer implements ScrollController.IListener {
         float sizeX = halfWidth + H_BORDER;
         float sizeY = halfHeight + V_BORDER;
         float shadowRadius = Math.max(sShadowRadius, 0.00001f);
+        float left = tooltipX - H_BORDER;
+        float top = tooltipY - V_BORDER;
+        float right = tooltipX + tooltipWidth + H_BORDER;
+        float bottom = tooltipY + tooltipHeight + V_BORDER;
+
+        float radius = Math.min(sCornerRadius, Math.min(sizeX, sizeY));
+        drawRoundedFill(gr, pose, scissor, left, top, right, bottom, radius);
 
         Vector4f pushData0 = new Vector4f(sizeX, sizeY, sCornerRadius, sBorderWidth / 2f);
         float rainbowOffset = 0;
@@ -800,16 +810,79 @@ public final class TooltipRenderer implements ScrollController.IListener {
                         TextureSetup.noTexture(),
                         new Matrix3x2f(),
                         -extentX, -extentY, extentX, extentY,
-                        ~0, ~0, ~0, ~0,
+                        sFillColor[0], sFillColor[1], sFillColor[2], sFillColor[3],
                         scissor,
                         bounds
                 ));
+
+        drawRoundedStroke(gr, pose, scissor, left, top, right, bottom,
+                radius, Math.max(1.0f, sBorderWidth));
 
         if (titleGap && sTitleBreak) {
             fillGrad(gr, pose, scissor,
                     tooltipX, tooltipY + titleBreakHeight - 0.5f,
                     tooltipX + tooltipWidth, tooltipY + titleBreakHeight + 0.5f,
                     0xE0C8C8C8, 0xE0C8C8C8, 0xE0C8C8C8, 0xE0C8C8C8);
+        }
+    }
+
+    private void drawRoundedStroke(@Nonnull GuiGraphicsExtractor gr, Matrix3x2f pose,
+                                   ScreenRectangle scissor,
+                                   float left, float top, float right, float bottom,
+                                   float radius, float width) {
+        if (!(left < right && top < bottom) || width <= 0.0f) {
+            return;
+        }
+        MuiModApi.get().submitGuiElementRenderState(gr,
+                new RoundedStrokeRenderState(
+                        RenderPipelines.GUI,
+                        TextureSetup.noTexture(),
+                        new Matrix3x2f(pose),
+                        left, top, right, bottom,
+                        radius, width,
+                        chooseBorderColor(0), chooseBorderColor(1),
+                        chooseBorderColor(2), chooseBorderColor(3),
+                        scissor
+                ));
+    }
+
+    private void drawRoundedFill(@Nonnull GuiGraphicsExtractor gr, Matrix3x2f pose,
+                                 ScreenRectangle scissor,
+                                 float left, float top, float right, float bottom,
+                                 float radius) {
+        if (!(left < right && top < bottom)) {
+            return;
+        }
+        radius = Math.min(radius, Math.min((right - left) * 0.5f, (bottom - top) * 0.5f));
+        if (radius <= 0.5f) {
+            fillGrad(gr, pose, scissor, left, top, right, bottom,
+                    sFillColor[0], sFillColor[1], sFillColor[2], sFillColor[3]);
+            return;
+        }
+
+        float middleTop = top + radius;
+        float middleBottom = bottom - radius;
+        if (middleTop < middleBottom) {
+            fillGrad(gr, pose, scissor, left, middleTop, right, middleBottom,
+                    sFillColor[0], sFillColor[1], sFillColor[2], sFillColor[3]);
+        }
+
+        int steps = Math.max(1, (int) Math.ceil(radius));
+        float step = radius / steps;
+        for (int i = 0; i < steps; i++) {
+            float y0 = top + i * step;
+            float y1 = i + 1 == steps ? middleTop : y0 + step;
+            float dy = radius - ((y0 + y1) * 0.5f - top);
+            float inset = radius - (float) Math.sqrt(Math.max(0.0f, radius * radius - dy * dy));
+            fillGrad(gr, pose, scissor, left + inset, y0, right - inset, y1,
+                    sFillColor[0], sFillColor[1], sFillColor[2], sFillColor[3]);
+
+            y0 = middleBottom + i * step;
+            y1 = i + 1 == steps ? bottom : y0 + step;
+            dy = (y0 + y1) * 0.5f - middleBottom;
+            inset = radius - (float) Math.sqrt(Math.max(0.0f, radius * radius - dy * dy));
+            fillGrad(gr, pose, scissor, left + inset, y0, right - inset, y1,
+                    sFillColor[0], sFillColor[1], sFillColor[2], sFillColor[3]);
         }
     }
 
@@ -879,6 +952,180 @@ public final class TooltipRenderer implements ScrollController.IListener {
                         left, top, right, bottom,
                         colorUL, colorUR, colorLR, colorLL,
                         scissor
-                ));
+        ));
+    }
+
+    private record RoundedStrokeRenderState(
+            @Nonnull RenderPipeline pipeline,
+            @Nonnull TextureSetup textureSetup,
+            @Nonnull Matrix3x2f pose,
+            float left, float top, float right, float bottom,
+            float radius, float width,
+            int colorTL, int colorTR, int colorBR, int colorBL,
+            @Nullable ScreenRectangle scissorArea,
+            @Nullable ScreenRectangle bounds
+    ) implements GuiElementRenderState {
+
+        private static final float AA = 0.75f;
+
+        RoundedStrokeRenderState(@Nonnull RenderPipeline pipeline,
+                                 @Nonnull TextureSetup textureSetup,
+                                 @Nonnull Matrix3x2f pose,
+                                 float left, float top, float right, float bottom,
+                                 float radius, float width,
+                                 int colorTL, int colorTR, int colorBR, int colorBL,
+                                 @Nullable ScreenRectangle scissorArea) {
+            this(pipeline, textureSetup, pose,
+                    left, top, right, bottom,
+                    radius, width,
+                    colorTL, colorTR, colorBR, colorBL,
+                    scissorArea,
+                    GradientRectangleRenderState.getBounds(
+                            left - AA, top - AA, right + AA, bottom + AA,
+                            pose, scissorArea
+                    ));
+        }
+
+        @Override
+        public void buildVertices(@Nonnull VertexConsumer consumer) {
+            float maxRadius = Math.min((right - left) * 0.5f, (bottom - top) * 0.5f);
+            float r = Math.min(radius, maxRadius);
+            float w = Math.min(width, maxRadius);
+            if (r <= 0.5f) {
+                addRectStroke(consumer, left, top, right, bottom, w);
+                return;
+            }
+
+            float innerRadius = Math.max(r - w, 0.0f);
+            float x0 = left + r;
+            float x1 = right - r;
+            float y0 = top + r;
+            float y1 = bottom - r;
+
+            addHorizontalEdge(consumer, x0, x1, top, w, false, colorTL, colorTR);
+            addHorizontalEdge(consumer, x0, x1, bottom, w, true, colorBL, colorBR);
+            addVerticalEdge(consumer, left, y0, y1, w, false, colorTL, colorBL);
+            addVerticalEdge(consumer, right, y0, y1, w, true, colorTR, colorBR);
+
+            int segments = Math.max(8, (int) Math.ceil(r * 3.0f));
+            addCorner(consumer, left + r, top + r, (float) Math.PI, 1.5f * (float) Math.PI,
+                    innerRadius, r, colorTL, segments);
+            addCorner(consumer, right - r, top + r, 1.5f * (float) Math.PI, 2.0f * (float) Math.PI,
+                    innerRadius, r, colorTR, segments);
+            addCorner(consumer, right - r, bottom - r, 0.0f, 0.5f * (float) Math.PI,
+                    innerRadius, r, colorBR, segments);
+            addCorner(consumer, left + r, bottom - r, 0.5f * (float) Math.PI, (float) Math.PI,
+                    innerRadius, r, colorBL, segments);
+        }
+
+        private void addRectStroke(VertexConsumer consumer,
+                                   float l, float t, float r, float b, float w) {
+            addHorizontalEdge(consumer, l, r, t, w, false, colorTL, colorTR);
+            addHorizontalEdge(consumer, l, r, b, w, true, colorBL, colorBR);
+            addVerticalEdge(consumer, l, t, b, w, false, colorTL, colorBL);
+            addVerticalEdge(consumer, r, t, b, w, true, colorTR, colorBR);
+        }
+
+        private void addHorizontalEdge(VertexConsumer consumer,
+                                       float x0, float x1, float y, float w,
+                                       boolean bottomEdge, int leftColor, int rightColor) {
+            if (!(x0 < x1)) {
+                return;
+            }
+            if (bottomEdge) {
+                addQuad(consumer, x0, y, x1, y, x1, y + AA, x0, y + AA,
+                        leftColor, rightColor, withAlpha(rightColor, 0.0f), withAlpha(leftColor, 0.0f));
+                addQuad(consumer, x0, y - w, x1, y - w, x1, y, x0, y,
+                        leftColor, rightColor, rightColor, leftColor);
+                addQuad(consumer, x0, y - w - AA, x1, y - w - AA, x1, y - w, x0, y - w,
+                        withAlpha(leftColor, 0.0f), withAlpha(rightColor, 0.0f), rightColor, leftColor);
+            } else {
+                addQuad(consumer, x0, y - AA, x1, y - AA, x1, y, x0, y,
+                        withAlpha(leftColor, 0.0f), withAlpha(rightColor, 0.0f), rightColor, leftColor);
+                addQuad(consumer, x0, y, x1, y, x1, y + w, x0, y + w,
+                        leftColor, rightColor, rightColor, leftColor);
+                addQuad(consumer, x0, y + w, x1, y + w, x1, y + w + AA, x0, y + w + AA,
+                        leftColor, rightColor, withAlpha(rightColor, 0.0f), withAlpha(leftColor, 0.0f));
+            }
+        }
+
+        private void addVerticalEdge(VertexConsumer consumer,
+                                     float x, float y0, float y1, float w,
+                                     boolean rightEdge, int topColor, int bottomColor) {
+            if (!(y0 < y1)) {
+                return;
+            }
+            if (rightEdge) {
+                addQuad(consumer, x, y0, x + AA, y0, x + AA, y1, x, y1,
+                        topColor, withAlpha(topColor, 0.0f), withAlpha(bottomColor, 0.0f), bottomColor);
+                addQuad(consumer, x - w, y0, x, y0, x, y1, x - w, y1,
+                        topColor, topColor, bottomColor, bottomColor);
+                addQuad(consumer, x - w - AA, y0, x - w, y0, x - w, y1, x - w - AA, y1,
+                        withAlpha(topColor, 0.0f), topColor, bottomColor, withAlpha(bottomColor, 0.0f));
+            } else {
+                addQuad(consumer, x - AA, y0, x, y0, x, y1, x - AA, y1,
+                        withAlpha(topColor, 0.0f), topColor, bottomColor, withAlpha(bottomColor, 0.0f));
+                addQuad(consumer, x, y0, x + w, y0, x + w, y1, x, y1,
+                        topColor, topColor, bottomColor, bottomColor);
+                addQuad(consumer, x + w, y0, x + w + AA, y0, x + w + AA, y1, x + w, y1,
+                        topColor, withAlpha(topColor, 0.0f), withAlpha(bottomColor, 0.0f), bottomColor);
+            }
+        }
+
+        private void addCorner(VertexConsumer consumer,
+                               float cx, float cy, float start, float end,
+                               float innerRadius, float outerRadius,
+                               int color, int segments) {
+            addCornerRing(consumer, cx, cy, start, end,
+                    outerRadius + AA, outerRadius,
+                    withAlpha(color, 0.0f), color, segments);
+            if (innerRadius < outerRadius) {
+                addCornerRing(consumer, cx, cy, start, end,
+                        outerRadius, innerRadius,
+                        color, color, segments);
+            }
+            if (innerRadius > 0.0f) {
+                addCornerRing(consumer, cx, cy, start, end,
+                        innerRadius, Math.max(innerRadius - AA, 0.0f),
+                        color, withAlpha(color, 0.0f), segments);
+            }
+        }
+
+        private void addCornerRing(VertexConsumer consumer,
+                                   float cx, float cy, float start, float end,
+                                   float outerRadius, float innerRadius,
+                                   int outerColor, int innerColor,
+                                   int segments) {
+            float step = (end - start) / segments;
+            for (int i = 0; i < segments; i++) {
+                float a0 = start + i * step;
+                float a1 = i + 1 == segments ? end : a0 + step;
+                float ox0 = cx + (float) Math.cos(a0) * outerRadius;
+                float oy0 = cy + (float) Math.sin(a0) * outerRadius;
+                float ox1 = cx + (float) Math.cos(a1) * outerRadius;
+                float oy1 = cy + (float) Math.sin(a1) * outerRadius;
+                float ix1 = cx + (float) Math.cos(a1) * innerRadius;
+                float iy1 = cy + (float) Math.sin(a1) * innerRadius;
+                float ix0 = cx + (float) Math.cos(a0) * innerRadius;
+                float iy0 = cy + (float) Math.sin(a0) * innerRadius;
+                addQuad(consumer, ox0, oy0, ox1, oy1, ix1, iy1, ix0, iy0,
+                        outerColor, outerColor, innerColor, innerColor);
+            }
+        }
+
+        private void addQuad(VertexConsumer consumer,
+                             float x0, float y0, float x1, float y1,
+                             float x2, float y2, float x3, float y3,
+                             int c0, int c1, int c2, int c3) {
+            consumer.addVertexWith2DPose(pose, x2, y2).setColor(c2);
+            consumer.addVertexWith2DPose(pose, x1, y1).setColor(c1);
+            consumer.addVertexWith2DPose(pose, x0, y0).setColor(c0);
+            consumer.addVertexWith2DPose(pose, x3, y3).setColor(c3);
+        }
+
+        private static int withAlpha(int color, float alphaScale) {
+            int alpha = Math.round(((color >>> 24) & 0xff) * alphaScale);
+            return (color & 0x00FFFFFF) | (MathUtil.clamp(alpha, 0, 255) << 24);
+        }
     }
 }

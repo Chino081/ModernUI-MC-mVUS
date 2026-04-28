@@ -210,6 +210,10 @@ public final class ModernTextRenderer {
     public int chooseMode(Matrix4fc ctm, Font.DisplayMode displayMode) {
         if (displayMode == Font.DisplayMode.SEE_THROUGH) {
             return TextRenderType.MODE_SEE_THROUGH;
+        } else if (displayMode == Font.DisplayMode.POLYGON_OFFSET &&
+                TextLayoutEngine.sCurrentInWorldRendering &&
+                TextLayoutEngine.sUseTextShadersInWorld) {
+            return TextRenderType.MODE_NORMAL;
         } else if (TextLayoutEngine.sCurrentInWorldRendering) {
             return TextRenderType.MODE_SDF_FILL;
         } else {
@@ -289,11 +293,14 @@ public final class ModernTextRenderer {
             ((MultiBufferSource.BufferSource) source).endBatch(Sheets.cutoutBlockSheet());
         }
 
+        boolean useNormalInWorld = TextLayoutEngine.sCurrentInWorldRendering &&
+                TextLayoutEngine.sUseTextShadersInWorld;
         layout.drawText(matrix, source, x, y, r, g, b, a, false,
-                TextRenderType.MODE_SDF_FILL, false, 1, 0, packedLight);
+                useNormalInWorld ? TextRenderType.MODE_NORMAL : TextRenderType.MODE_SDF_FILL,
+                false, 1, 0, packedLight);
 
         // disable outline if either text color is BLACK or SDF shader is unavailable
-        if (isBlack ||
+        if (isBlack || useNormalInWorld ||
                 (TextLayoutEngine.sCurrentInWorldRendering && !TextLayoutEngine.sUseTextShadersInWorld)) {
             return;
         }

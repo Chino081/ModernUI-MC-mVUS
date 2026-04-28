@@ -70,11 +70,12 @@ void main() {
     shadow = u_ShadowAlpha * (shadow + (noise1(gl_FragCoord.x,gl_FragCoord.y)-1.0)*0.05);
 
     // 边框 alpha
-    float dstA = max(shadow, step(dis,0.0)) * u_BackgroundAlpha;
+    float dstA = shadow * u_BackgroundAlpha;
     float f = abs(dis)-u_Thickness;
     float afwidth = fwidth(f);
     float srcA = border.a * (1.0 - clamp(f/afwidth + 0.5, 0.0, 1.0));
     float alpha = max(srcA + (1.0-srcA)*dstA, 0.001); // 保证 alpha 不为 0
+    vec3 color = border.rgb * srcA / alpha;
 
-    fragColor = dither(vec4(border.rgb * srcA / alpha, alpha));
+    fragColor = dither(vec4(color, alpha));
 }
