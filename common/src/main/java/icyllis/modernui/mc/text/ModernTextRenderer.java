@@ -139,7 +139,7 @@ public final class ModernTextRenderer {
         int g = color >> 8 & 0xff;
         int b = color & 0xff;
 
-        int mode = chooseMode(matrix, displayMode);
+        int mode = chooseMode(matrix, source, displayMode);
         boolean polygonOffset = displayMode == Font.DisplayMode.POLYGON_OFFSET;
 
         if (layout.hasColorEmoji() && source instanceof MultiBufferSource.BufferSource) {
@@ -207,7 +207,7 @@ public final class ModernTextRenderer {
                 mode, polygonOffset, uniformScale, colorBackground, packedLight);
     }
 
-    public int chooseMode(Matrix4fc ctm, Font.DisplayMode displayMode) {
+    public int chooseMode(Matrix4fc ctm, @Nonnull MultiBufferSource source, Font.DisplayMode displayMode) {
         if (displayMode == Font.DisplayMode.SEE_THROUGH) {
             return TextRenderType.MODE_SEE_THROUGH;
         } else if (displayMode == Font.DisplayMode.POLYGON_OFFSET &&
@@ -216,6 +216,8 @@ public final class ModernTextRenderer {
             return TextRenderType.MODE_NORMAL;
         } else if (TextLayoutEngine.sCurrentInWorldRendering) {
             return TextRenderType.MODE_SDF_FILL;
+        } else if (source instanceof MultiBufferSource.BufferSource) {
+            return TextRenderType.MODE_NORMAL;
         } else {
             //if ((ctm.properties() & Matrix4f.PROPERTY_TRANSLATION) == 0) {
                 /*if (sComputeDeviceFontSize && ctm.m23() == 0.0f &&
