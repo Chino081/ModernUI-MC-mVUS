@@ -115,6 +115,11 @@ public final class TextRenderType {
             ))
             .build();
 
+    public static final RenderPipeline PIPELINE_SDF_FILL_GUI = withFragmentShader(
+            withLocation(RenderPipeline.builder(PIPELINE_SDF_SNIPPET), "pipeline/modern_text_sdf_fill"),
+            "core/rendertype_modern_text_sdf_fill")
+            .build();
+
     public static final RenderPipeline PIPELINE_SDF_STROKE = withFragmentShader(
             withLocation(RenderPipeline.builder(PIPELINE_SDF_SNIPPET), "pipeline/modern_text_sdf_stroke"),
             "core/rendertype_modern_text_sdf_stroke")
@@ -124,6 +129,11 @@ public final class TextRenderType {
                     -1.0F,            // depthBiasScaleFactor
                     -10.0F            // depthBiasConstant
             ))
+            .build();
+
+    public static final RenderPipeline PIPELINE_SDF_STROKE_GUI = withFragmentShader(
+            withLocation(RenderPipeline.builder(PIPELINE_SDF_SNIPPET), "pipeline/modern_text_sdf_stroke"),
+            "core/rendertype_modern_text_sdf_stroke")
             .build();
 
     private static volatile RenderPipeline sCurrentPipelineSDFFill = PIPELINE_SDF_FILL;
@@ -376,7 +386,8 @@ public final class TextRenderType {
 
     public static RenderPipeline getPipelineForGui(int mode, boolean isBitmapFont) {
         return switch (mode) {
-            case MODE_SDF_FILL -> sCurrentPipelineSDFFill;
+            case MODE_SDF_FILL -> PIPELINE_SDF_FILL_GUI;
+            case MODE_SDF_STROKE -> PIPELINE_SDF_STROKE_GUI;
             default -> isBitmapFont
                     ? RenderPipelines.TEXT
                     : PIPELINE_NORMAL;
