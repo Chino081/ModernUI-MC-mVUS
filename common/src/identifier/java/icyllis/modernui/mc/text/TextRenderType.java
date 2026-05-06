@@ -68,6 +68,7 @@ public final class TextRenderType {
     public static final int MODE_SDF_FILL = 1;
     public static final int MODE_SDF_STROKE = 2;
     public static final int MODE_SEE_THROUGH = 3;
+    public static final int MODE_SDF_FILL_GUI = 5;
     /**
      * Used in 2D rendering, render as {@link #MODE_NORMAL},
      * but we compute font size in device space from CTM.
@@ -221,6 +222,7 @@ public final class TextRenderType {
      */
     private static final HashMap<GpuTextureView, Object> sNormalTypes = new HashMap<>();
     private static final HashMap<GpuTextureView, Object> sSDFFillTypes = new HashMap<>();
+    private static final HashMap<GpuTextureView, Object> sSDFFillGuiTypes = new HashMap<>();
     private static final HashMap<GpuTextureView, Object> sSDFStrokeTypes = new HashMap<>();
     private static final HashMap<GpuTextureView, Object> sVanillaTypes = new HashMap<>();
     private static final HashMap<GpuTextureView, Object> sSeeThroughTypes = new HashMap<>();
@@ -325,7 +327,7 @@ public final class TextRenderType {
     @Nonnull
     static Object getSamplerForGui(int mode) {
         return switch (mode) {
-            case MODE_SDF_FILL, MODE_SDF_STROKE -> SDF_SAMPLER.get();
+            case MODE_SDF_FILL, MODE_SDF_FILL_GUI, MODE_SDF_STROKE -> SDF_SAMPLER.get();
             default -> DEFAULT_SAMPLER.get();
         };
     }
@@ -359,6 +361,7 @@ public final class TextRenderType {
                     yield sPolygonOffsetTypes.computeIfAbsent(texture, TextRenderType::makePolygonOffsetType);
                 }
             }
+            case MODE_SDF_FILL_GUI -> sSDFFillGuiTypes.computeIfAbsent(texture, TextRenderType::makeSDFFillGuiType);
             case MODE_SDF_STROKE -> sSDFStrokeTypes.computeIfAbsent(texture, TextRenderType::makeSDFStrokeType);
             case MODE_SEE_THROUGH -> sSeeThroughTypes.computeIfAbsent(texture, TextRenderType::makeSeeThroughType);
             default -> {
@@ -386,7 +389,7 @@ public final class TextRenderType {
 
     public static RenderPipeline getPipelineForGui(int mode, boolean isBitmapFont) {
         return switch (mode) {
-            case MODE_SDF_FILL -> PIPELINE_SDF_FILL_GUI;
+            case MODE_SDF_FILL, MODE_SDF_FILL_GUI -> PIPELINE_SDF_FILL_GUI;
             case MODE_SDF_STROKE -> PIPELINE_SDF_STROKE_GUI;
             default -> isBitmapFont
                     ? RenderPipelines.TEXT
@@ -448,6 +451,15 @@ public final class TextRenderType {
             }
         }
         return renderType;
+    }
+
+    @Nonnull
+    private static Object makeSDFFillGuiType(GpuTextureView texture) {
+        return MuiModApi.get().createRenderType("modern_text_sdf_fill_gui", 256,
+                false, true, PIPELINE_SDF_FILL_GUI,
+                getOrRegisterTextureId(texture),
+                SDF_SAMPLER,
+                true);
     }
 
     @Nonnull
@@ -569,6 +581,7 @@ public final class TextRenderType {
         }
         sNormalTypes.clear();
         sSDFFillTypes.clear();
+        sSDFFillGuiTypes.clear();
         sSDFStrokeTypes.clear();
         sVanillaTypes.clear();
         sSeeThroughTypes.clear();

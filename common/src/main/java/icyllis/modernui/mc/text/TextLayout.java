@@ -335,7 +335,8 @@ public class TextLayout {
         final int startB = b;
         final float density;
         final GLBakedGlyph[] glyphs;
-        if (preferredMode == TextRenderType.MODE_SDF_FILL) {
+        if (preferredMode == TextRenderType.MODE_SDF_FILL ||
+                preferredMode == TextRenderType.MODE_SDF_FILL_GUI) {
             int resLevel = TextLayoutEngine.adjustPixelDensityForSDF(mCreatedResLevel);
             glyphs = getGlyphs(resLevel);
             density = resLevel;
@@ -683,7 +684,8 @@ public class TextLayout {
                                                      final int bgColor, boolean stripPoseTranslation) {
         final float density;
         final GLBakedGlyph[] glyphs;
-        if (preferredMode == TextRenderType.MODE_SDF_FILL) {
+        if (preferredMode == TextRenderType.MODE_SDF_FILL ||
+                preferredMode == TextRenderType.MODE_SDF_FILL_GUI) {
             int resLevel = TextLayoutEngine.adjustPixelDensityForSDF(mCreatedResLevel);
             glyphs = getGlyphs(resLevel);
             density = resLevel;

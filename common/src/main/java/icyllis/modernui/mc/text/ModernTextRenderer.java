@@ -217,7 +217,9 @@ public final class ModernTextRenderer {
         } else if (TextLayoutEngine.sCurrentInWorldRendering) {
             return TextRenderType.MODE_SDF_FILL;
         } else if (source instanceof MultiBufferSource.BufferSource) {
-            return TextRenderType.MODE_NORMAL;
+            return sAllowSDFTextIn2D
+                    ? TextRenderType.MODE_SDF_FILL_GUI
+                    : TextRenderType.MODE_NORMAL;
         } else {
             //if ((ctm.properties() & Matrix4f.PROPERTY_TRANSLATION) == 0) {
                 /*if (sComputeDeviceFontSize && ctm.m23() == 0.0f &&
