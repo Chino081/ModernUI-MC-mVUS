@@ -200,13 +200,6 @@ final class Registration {
             //SettingsManager.INSTANCE.buildAllSettings();
             //UIManager.getInstance().registerMenuScreen(Registration.TEST_MENU, menu -> new TestUI());
 
-            event.enqueueWork(() -> {
-                //ModernUI.getSelectedTypeface();
-                UIManagerForge.initializeRenderer();
-                // ensure it's applied and positioned
-                Config.CLIENT.mLastWindowMode.apply();
-            });
-
             CrashReportCallables.registerCrashCallable("Fragments", () -> {
                 var fragments = UIManager.getInstance().getFragmentController();
                 var builder = new StringBuilder();
@@ -268,7 +261,7 @@ final class Registration {
                         Minecraft minecraft = Minecraft.getInstance();
                         if ((int) minecraft.getWindow().getGuiScale() !=
                                 minecraft.getWindow().calculateScale(value, false)) {
-                            minecraft.resizeDisplay();
+                            minecraft.resizeGui();
                         }
                     });
                 });
@@ -305,7 +298,7 @@ final class Registration {
                             (options, aDouble) -> {
                                 if (options.guiScale != aDouble.intValue()) {
                                     options.guiScale = aDouble.intValue();
-                                    Minecraft.getInstance().resizeDisplay();
+                                    Minecraft.getInstance().resizeGui();
                                 }
                             },
                             (options, progressOption) -> options.guiScale == 0 ?

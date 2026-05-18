@@ -373,7 +373,7 @@ if (project.hasProperty("keystore")) {
 
 processResources {
     def fabricLoaderRange = ">=${rootProject.modernUiMcProfile.fabricLoader}"
-    def minecraftRange = ">=26.1"
+    def minecraftRange = rootProject.modernUiMcVersionRangeFabric
     def fabricApiRange = ">=${rootProject.modernUiFabricApiMin}"
     def forgeConfigApiPortRange = ">=${rootProject.modernUiMcProfile.forgeConfigApiPortFabric}"
 

@@ -26,14 +26,14 @@ import com.mojang.blaze3d.textures.GpuTexture;
 import icyllis.modernui.fragment.Fragment;
 import icyllis.modernui.mc.*;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.navigation.ScreenRectangle;
-import net.minecraft.client.gui.render.state.GuiElementRenderState;
-import net.minecraft.client.gui.render.state.pip.PictureInPictureRenderState;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.MenuAccess;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.state.gui.GuiElementRenderState;
+import net.minecraft.client.renderer.state.gui.pip.PictureInPictureRenderState;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
 import net.minecraft.world.entity.player.Inventory;
@@ -42,9 +42,16 @@ import net.minecraft.world.item.Rarity;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.function.Supplier;
 
 public final class MuiForgeApi extends MuiModApi {
+
+    @Nullable
+    private static volatile Field sScissorStackField;
+    @Nullable
+    private static volatile Method sScissorStackPeekMethod;
 
     public MuiForgeApi() {
         ModernUIMod.LOGGER.info(ModernUIMod.MARKER, "Created MuiForgeAPI");
@@ -120,45 +127,48 @@ public final class MuiForgeApi extends MuiModApi {
 
     @Override
     public GpuDevice getRealGpuDevice() {
-        GpuDevice gpuDevice = RenderSystem.getDevice();
-        try {
-            // The ValidationGpuDevice prevents you from creating external textures, that's terrible
-            if (gpuDevice instanceof net.neoforged.neoforge.client.blaze3d.validation.ValidationGpuDevice validationGpuDevice) {
-                gpuDevice = validationGpuDevice.getRealDevice();
-            }
-        } catch (Throwable ignored) {
-
-        }
-        return gpuDevice;
+        return RenderSystem.getDevice();
     }
 
     @Override
     public GpuTexture getRealGpuTexture(GpuTexture faker) {
-        GpuTexture gpuTexture = faker;
-        try {
-            if (gpuTexture instanceof net.neoforged.neoforge.client.blaze3d.validation.ValidationGpuTexture validationGpuTexture) {
-                gpuTexture = validationGpuTexture.getRealTexture();
-            }
-        } catch (Throwable ignored) {
-
-        }
-        return gpuTexture;
+        return faker;
     }
 
     @Override
-    public void submitGuiElementRenderState(GuiGraphics graphics, GuiElementRenderState renderState) {
+    public void submitGuiElementRenderState(GuiGraphicsExtractor graphics, GuiElementRenderState renderState) {
         graphics.submitGuiElementRenderState(renderState);
     }
 
     @Override
-    public void submitPictureInPictureRenderState(GuiGraphics graphics, PictureInPictureRenderState renderState) {
+    public void submitPictureInPictureRenderState(GuiGraphicsExtractor graphics, PictureInPictureRenderState renderState) {
         graphics.submitPictureInPictureRenderState(renderState);
     }
 
     @Nullable
     @Override
-    public ScreenRectangle peekScissorStack(GuiGraphics graphics) {
-        return graphics.peekScissorStack();
+    public ScreenRectangle peekScissorStack(GuiGraphicsExtractor graphics) {
+        try {
+            Field field = sScissorStackField;
+            if (field == null) {
+                field = GuiGraphicsExtractor.class.getDeclaredField("scissorStack");
+                field.trySetAccessible();
+                sScissorStackField = field;
+            }
+            Object scissorStack = field.get(graphics);
+            if (scissorStack == null) {
+                return null;
+            }
+            Method peek = sScissorStackPeekMethod;
+            if (peek == null) {
+                peek = scissorStack.getClass().getDeclaredMethod("peek");
+                peek.trySetAccessible();
+                sScissorStackPeekMethod = peek;
+            }
+            return (ScreenRectangle) peek.invoke(scissorStack);
+        } catch (Throwable ignored) {
+            return null;
+        }
     }
 
     @Override

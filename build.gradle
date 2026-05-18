@@ -4,44 +4,18 @@ plugins {
 
 
 ext.modernUiMcProfiles = [
-        '1.21.9' : [
-                modVersionBase           : '3.12.1.0-build.1',
-                forge                   : '59.0.5',
-                neoforge                : '21.9.16-beta',
-                fabricLoader            : '0.18.1',
-                fabricApi               : '0.134.1+1.21.9',
-                modMenu                 : '16.0.0-rc.2',
-                forgeConfigApiPortFabric: '21.9.7',
-        ],
-        '1.21.10': [
-                modVersionBase           : '3.12.1.0-build.1',
-                forge                   : '60.1.5',
-                neoforge                : '21.10.64',
-                fabricLoader            : '0.18.1',
-                fabricApi               : '0.138.4+1.21.10',
-                modMenu                 : '16.0.0-rc.2',
-                forgeConfigApiPortFabric: '21.10.1',
-        ],
-        '1.21.11': [
-                modVersionBase           : '3.12.1.0-build.1',
-                forge                   : '61.0.3',
-                neoforge                : '21.11.17-beta',
-                fabricLoader            : '0.18.1',
-                fabricApi               : '0.140.2+1.21.11',
-                modMenu                 : '17.0.0-beta.1',
-                forgeConfigApiPortFabric: '21.11.1',
-        ],
-        '26.1': [
-                modVersionBase           : '3.12.1.0-build.1',
-                fabricLoader            : '0.18.6',
-                fabricApi               : '0.144.3+26.1',
+        '26.1.2': [
+                modVersionBase           : '3.12.1.0-build.2',
+                neoforge                : '26.1.2.36-beta',
+                fabricLoader            : '0.19.2',
+                fabricApi               : '0.146.1+26.1.2',
                 modMenu                 : '18.0.0-alpha.8',
-                forgeConfigApiPortFabric: '26.1.0.2',
+                forgeConfigApiPortFabric: '26.1.3',
         ],
 ]
 
 ext.modernUiMcTarget =
-        (findProperty('minecraft_version') ?: '26.1')
+        (findProperty('minecraft_version') ?: '26.1.2')
                 .toString()
                 .trim()
 
@@ -145,7 +119,7 @@ if (mcTargetInfo.scheme == 'release') {
 
     throw new GradleException(
             "Invalid minecraft_version='${ext.modernUiMcTarget}'. Supported formats: " +
-                    "1.21.11, 26.1, 26.1.1, 26.1-snapshot-1, 26w05a"
+                    "26.1.2"
     )
 }
 
@@ -290,18 +264,10 @@ def releaseDir = layout.buildDirectory.dir("release")
 def releaseModVersion = mod_version
 
 def fabricProject = project(':ModernUI-Fabric')
-def forgeProject = findProject(':ModernUI-Forge')
-def neoForgeProject = findProject(':ModernUI-NeoForge')
-def supportsForge = forgeProject != null && rootProject.modernUiMcProfile.forge != null
-def supportsNeoForge = neoForgeProject != null && rootProject.modernUiMcProfile.neoforge != null
+def neoForgeProject = project(':ModernUI-NeoForge')
 
 def fabricUniversalJar = fabricProject.layout.buildDirectory.file("libs/${fabricProject.name}-${releaseModVersion}-universal.jar")
-def forgeUniversalJar = supportsForge
-        ? forgeProject.layout.buildDirectory.file("libs/${forgeProject.name}-${releaseModVersion}-universal.jar")
-        : null
-def neoForgeUniversalJar = supportsNeoForge
-        ? neoForgeProject.layout.buildDirectory.file("libs/${neoForgeProject.name}-${releaseModVersion}-universal.jar")
-        : null
+def neoForgeUniversalJar = neoForgeProject.layout.buildDirectory.file("libs/${neoForgeProject.name}-${releaseModVersion}-universal.jar")
 
 tasks.register('syncReleaseJars', Sync) {
     group = 'distribution'
@@ -309,13 +275,8 @@ tasks.register('syncReleaseJars', Sync) {
 
     def remapJarTasks = [
             ':ModernUI-Fabric:remapJar',
+            ':ModernUI-NeoForge:remapJar',
     ]
-    if (supportsForge) {
-        remapJarTasks.add(':ModernUI-Forge:remapJar')
-    }
-    if (supportsNeoForge) {
-        remapJarTasks.add(':ModernUI-NeoForge:remapJar')
-    }
     dependsOn(remapJarTasks)
 
     into(releaseDir)
@@ -323,27 +284,15 @@ tasks.register('syncReleaseJars', Sync) {
     from(fabricUniversalJar) {
         rename { "${rootProject.name}-${releaseModVersion}-fabric.jar" }
     }
-    if (supportsForge) {
-        from(forgeUniversalJar) {
-            rename { "${rootProject.name}-${releaseModVersion}-forge.jar" }
-        }
-    }
-    if (supportsNeoForge) {
-        from(neoForgeUniversalJar) {
-            rename { "${rootProject.name}-${releaseModVersion}-neoforge.jar" }
-        }
+    from(neoForgeUniversalJar) {
+        rename { "${rootProject.name}-${releaseModVersion}-neoforge.jar" }
     }
 
     doFirst {
         def expectedJars = [
                 fabricUniversalJar.get().asFile,
+                neoForgeUniversalJar.get().asFile,
         ]
-        if (supportsForge) {
-            expectedJars.add(forgeUniversalJar.get().asFile)
-        }
-        if (supportsNeoForge) {
-            expectedJars.add(neoForgeUniversalJar.get().asFile)
-        }
         expectedJars.each { File jarFile ->
             if (!jarFile.exists()) {
                 throw new GradleException("Expected release jar was not produced: ${jarFile}")
@@ -354,6 +303,6 @@ tasks.register('syncReleaseJars', Sync) {
 
 tasks.register('buildReleaseJars') {
     group = 'build'
-    description = 'One-command build for distributable Fabric/Forge/NeoForge jars.'
+    description = 'One-command build for distributable Fabric/NeoForge jars.'
     dependsOn('syncReleaseJars')
 }

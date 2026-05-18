@@ -134,7 +134,7 @@ public final class ServerHandler {
             }
             ModernUIMod.LOGGER.info(String.format(str, l));
             final Component component = Component.translatable(key, l).withStyle(ChatFormatting.LIGHT_PURPLE);
-            ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayers().forEach(p -> p.displayClientMessage(component, true));
+            ServerLifecycleHooks.getCurrentServer().getPlayerList().getPlayers().forEach(p -> p.sendSystemMessage(component, true));
         }
     }
 }

@@ -175,7 +175,7 @@ abstract class FixNeoformConfigTransform implements TransformAction<TransformPar
 }
 
 plugins {
-    id 'dev.architectury.loom' version '1.13-SNAPSHOT' apply false
+    id 'dev.architectury.loom-no-remap' version '1.14-SNAPSHOT' apply false
     //id 'com.matthewprenger.cursegradle' version '1.4.0'
     id 'com.gradleup.shadow' version '9.3.1' apply false
 }
@@ -188,36 +188,19 @@ if (rootProject.modernUiMcProfile.neoforge == null) {
     return
 }
 
-apply plugin: 'dev.architectury.loom'
+apply plugin: 'dev.architectury.loom-no-remap'
 apply plugin: 'com.gradleup.shadow'
 
 def mcPatch = (rootProject.modernUiMcTargetInfo.scheme == 'legacy'
         ? (rootProject.modernUiMcTargetInfo.patch as int)
         : Integer.MAX_VALUE)
 def useIdentifierResourceId = rootProject.modernUiMcTargetInfo.scheme != 'legacy' || mcPatch >= 11
-def identityMappingsFile = new File(rootProject.buildDir, "loom/identity-${minecraft_version}.tiny")
-if (rootProject.modernUiMcTargetInfo.scheme != 'legacy') {
-    identityMappingsFile.parentFile.mkdirs()
-    identityMappingsFile.text = "tiny\t2\t0\tofficial\tnamed\n"
 
-    configurations.configureEach {
-        resolutionStrategy.eachDependency { details ->
-            if (details.requested.group == "org.ow2.asm") {
-                details.useVersion("9.9.1")
-            }
+configurations.configureEach {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == "org.ow2.asm") {
+            details.useVersion("9.9.1")
         }
-    }
-
-    def artifactType = Attribute.of("artifactType", String)
-    def fixedArtifactsType = "modernui-neoform-fixed"
-    dependencies {
-        registerTransform(FixNeoformConfigTransform) {
-            from.attribute(artifactType, "zip")
-            to.attribute(artifactType, fixedArtifactsType)
-        }
-    }
-    configurations.named("mcp").configure {
-        attributes.attribute(artifactType, fixedArtifactsType)
     }
 }
 
@@ -242,10 +225,6 @@ configurations {
 
 loom {
     silentMojangMappingsLicense()
-    if (rootProject.modernUiMcTargetInfo.scheme != 'legacy') {
-        // Minecraft 26.1+ ships unobfuscated; do not use intermediary remapping.
-        noIntermediateMappings()
-    }
     runConfigs.each { it.setIdeConfigGenerated(true) } // Uncomment this if run configs not generated
     addTaskBeforeRun(":${name}:classes")
 }
@@ -273,15 +252,6 @@ repositories {
 
 dependencies {
     minecraft "com.mojang:minecraft:${minecraft_version}"
-    if (rootProject.modernUiMcTargetInfo.scheme == 'legacy') {
-        mappings loom.officialMojangMappings()
-    } else {
-        mappings loom.layered {
-            mappings(identityMappingsFile) {
-                mergeNamespace('official')
-            }
-        }
-    }
     neoForge "net.neoforged:neoforge:${rootProject.modernUiMcProfile.neoforge}"
 
     compileOnly project(':common')
@@ -347,7 +317,7 @@ tasks.withType(ProcessResources).configureEach {
 }
 
 shadowJar {
-    archiveClassifier.set("shadow")
+    archiveClassifier.set("universal")
     configurations = [project.configurations.shadow]
 
     /*dependencies {
@@ -372,25 +342,23 @@ shadowJar {
     exclude 'META-INF/maven/**'*/
 }
 
-remapJar {
+tasks.register('remapJar') {
+    group = 'build'
+    description = 'Compatibility task for 26.1.2 no-remap builds; shadowJar already produces the universal jar.'
     dependsOn(shadowJar)
-    inputFile.set(shadowJar.archiveFile)
-    archiveClassifier.set("universal")
 }
 
-tasks.register('remapMavenJar', RemapJarTask) {
+tasks.register('remapMavenJar', Jar) {
     dependsOn(jar)
-    inputFile.set(jar.archiveFile)
-    addNestedDependencies = false
-    /*targetNamespace.set("srg") // to srg names
-    remapAccessWidener.set(true)*/
+    from(zipTree(jar.archiveFile))
     archiveClassifier.set("maven")
 }
 
 if (project.hasProperty("keystore")) {
-    remapJar.doLast {
+    tasks.named('remapJar').configure {
+        doLast {
         ant.signjar(
-                jar: remapJar.archiveFile.get(),
+                jar: shadowJar.archiveFile.get(),
                 alias: project.getProperty("keystore_alias"),
                 storepass: project.getProperty("keystore_pass"),
                 keystore: project.getProperty("keystore"),
@@ -398,6 +366,7 @@ if (project.hasProperty("keystore")) {
                 keypass: project.getProperty("keystore_keypass"),
                 tsaurl: 'http://timestamp.digicert.com'
         )
+        }
     }
 }
 

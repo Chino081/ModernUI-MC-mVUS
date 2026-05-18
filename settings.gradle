@@ -35,19 +35,11 @@ if (file('../ModernUI').exists()) {
 include 'common'
 
 def modernUiMcTarget = providers.gradleProperty('minecraft_version')
-        .orElse('26.1')
+        .orElse('26.1.2')
         .get()
         .trim()
-def supportsForge = modernUiMcTarget != '26.1'
-def supportsNeoForge = modernUiMcTarget != '26.1'
 
-if (supportsForge) {
-    include 'forge'
-    project(':forge').name = "ModernUI-Forge"
-}
-if (supportsNeoForge) {
-    include 'neoforge'
-    project(':neoforge').name = "ModernUI-NeoForge"
-}
 include 'fabric'
 project(':fabric').name = "ModernUI-Fabric"
+include 'neoforge'
+project(':neoforge').name = "ModernUI-NeoForge"

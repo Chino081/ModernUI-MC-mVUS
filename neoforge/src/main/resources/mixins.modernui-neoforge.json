@@ -28,5 +28,9 @@
     "MixinStringSplitter",
     "MixinTextFieldHelper",
     "MixinWindow"
+  ],
+  "mixins": [
+    "MixinGLCaps_GL",
+    "MixinPixelUtils"
   ]
 }

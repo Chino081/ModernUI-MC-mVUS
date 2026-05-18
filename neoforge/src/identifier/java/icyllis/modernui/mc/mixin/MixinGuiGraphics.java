@@ -20,7 +20,7 @@ package icyllis.modernui.mc.mixin;
 
 import icyllis.modernui.mc.neoforge.UIManagerForge;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipPositioner;
 import net.minecraft.world.item.ItemStack;
@@ -33,11 +33,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import javax.annotation.Nullable;
 import java.util.List;
 
-@Mixin(GuiGraphics.class)
+@Mixin(GuiGraphicsExtractor.class)
 public abstract class MixinGuiGraphics {
 
     @Inject(method = {
-            "renderTooltip(Lnet/minecraft/client/gui/Font;Ljava/util/List;" +
+            "tooltip(Lnet/minecraft/client/gui/Font;Ljava/util/List;" +
                     "IILnet/minecraft/client/gui/screens/inventory/tooltip/ClientTooltipPositioner;" +
                     "Lnet/minecraft/resources/Identifier;Lnet/minecraft/world/item/ItemStack;)V",
     }, at = @At("HEAD"))

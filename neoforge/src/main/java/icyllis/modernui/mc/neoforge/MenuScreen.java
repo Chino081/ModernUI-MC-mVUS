@@ -20,7 +20,6 @@ package icyllis.modernui.mc.neoforge;
 
 import icyllis.modernui.fragment.Fragment;
 import icyllis.modernui.mc.*;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.CharacterEvent;
@@ -76,23 +75,6 @@ final class MenuScreen<T extends AbstractContainerMenu>
     protected void init() {
         super.init();
         mHost.initScreen(this);
-    }
-
-    @Override
-    public void renderBackground(@Nonnull GuiGraphics gr, int mouseX, int mouseY, float deltaTick) {
-        ScreenCallback callback = getCallback();
-        if (callback == null || callback.hasDefaultBackground()) {
-            super.renderBackground(gr, mouseX, mouseY, deltaTick);
-        }
-    }
-
-    @Override
-    public void render(@Nonnull GuiGraphics gr, int mouseX, int mouseY, float deltaTick) {
-        mHost.render(gr, mouseX, mouseY, deltaTick);
-    }
-
-    @Override
-    protected void renderBg(@Nonnull GuiGraphics gr, float deltaTick, int x, int y) {
     }
 
     @Override
