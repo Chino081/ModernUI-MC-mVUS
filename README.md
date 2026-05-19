@@ -12,8 +12,8 @@
 **Modern UI for Minecraft**（又称 **ModernUI-MC**）是一个基于
 [ModernUI Framework](https://github.com/BloCamLimb/ModernUI)（面向 JDK 的跨平台桌面 UI 框架）及其扩展的 Minecraft 模组。
 
-本项目在 Minecraft 环境中提供 ModernUI 的启动/运行时集成，使基于 ModernUI 的应用能够在 Minecraft 中*原生*运行。同时，它也为
-**Forge / NeoForge / Fabric** 提供模组开发 API，便于构建功能完善的图形界面。
+本项目在 Minecraft 环境中提供 ModernUI 的启动/运行时集成，使基于 ModernUI 的应用能够在 Minecraft 中*原生*运行。当前分支为 Minecraft
+`26.1.2` 构建 **Fabric / NeoForge** 产物。
 
 你可以将本项目理解为一层桥接/服务层（并附带针对 Minecraft 的改进与扩展）：使用 ModernUI 开发的应用（或局部 UI 片段）既可独立运行，
 也可通过本模组在 Minecraft 中运行，通常无需改动代码。基于原版 GUI 的其它模组，也能从更强的文本系统与一系列 UI 工具中受益。
@@ -64,13 +64,11 @@ ModernUI-MC 内置为 Minecraft 量身打造的强大文本布局与渲染系统
 
 ## 兼容性
 - Minecraft：
-  - `26.1-snapshot-1`（**Java Edition 26.1 Snapshot 1**）— Fabric
-  - `1.21.9`、`1.21.10`、`1.21.11`（Fabric / Forge / NeoForge）
-  - 说明：本项目已支持 Minecraft `26.1` 快照，但依赖模组 `forgeconfigapiport` 目前尚不支持；因此当前可下载构建仅提供 Minecraft `1.21.11～1.21.9`（含端点，即 `1.21.9`–`1.21.11`）。
+  - `26.1.2`（Fabric / NeoForge）
+  - 当前 Gradle 配置只声明了 `26.1.2` 这一组 profile；如需构建其它 Minecraft 版本，需要先在 `ext.modernUiMcProfiles` 中添加对应配置。
 - Java：
-  - `25` 用于 `26.1-snapshot-1`（Gradle 必须运行在 Java 25）
-  - `21` 用于 `1.21.9`–`1.21.11`
-- 构建目标：默认 `minecraft_version=26.1-snapshot-1`（可用 `-Pminecraft_version=<version>` 覆盖）
+  - `25`（Gradle toolchain 与 GitHub Actions CI 均使用 Java 25）
+- 构建目标：默认从 `gradle.properties` 读取 `minecraft_version=26.1.2`。
 
 ## 面向模组开发者
 ### Gradle 仓库
@@ -93,17 +91,19 @@ repositories {
 ```
 
 ### 依赖配置
+下面示例中，`modernui_core_version` 对应 ModernUI Framework 版本（当前为 `3.12.0`），`modernui_mc_version` 对应本仓库发布的 Minecraft 侧模组版本（当前为 `3.12.1.0-build.2+mc26.1.2`）。
+
 #### Architectury Loom / Fabric Loom
 ```groovy
 dependencies {
   // If you are on Fabric, uncomment this and find a compatible FCAPI version.
   // modApi "fuzs.forgeconfigapiport:forgeconfigapiport-fabric:${fcapi_version}"
-  implementation "icyllis.modernui:ModernUI-Core:${modernui_version}"
+  implementation "icyllis.modernui:ModernUI-Core:${modernui_core_version}"
   // Modern UI core extensions
   // Markdown (<=3.11.1) / Markflow (>=3.12.0) is required, others are optional
-  implementation "icyllis.modernui:ModernUI-Markflow:${modernui_version}"
+  implementation "icyllis.modernui:ModernUI-Markflow:${modernui_core_version}"
   // Choose one of Fabric or NeoForge
-  modImplementation("icyllis.modernui:ModernUI-Fabric:${minecraft_version}-${modernui_version}.+")
+  modImplementation("icyllis.modernui:ModernUI-Fabric:${modernui_mc_version}")
 }
 ```
 
@@ -111,8 +111,8 @@ dependencies {
 ```groovy
 dependencies {
   // Modern UI
-  implementation("icyllis.modernui:ModernUI-NeoForge:${minecraft_version}-${modernui_version}.+")
-  additionalRuntimeClasspath(compileOnly("icyllis.modernui:ModernUI-Core:${modernui_version}")) {
+  implementation("icyllis.modernui:ModernUI-NeoForge:${modernui_mc_version}")
+  additionalRuntimeClasspath(compileOnly("icyllis.modernui:ModernUI-Core:${modernui_core_version}")) {
     exclude group: "org.slf4j", module: "slf4j-api"
     exclude group: "org.apache.logging.log4j", module: "log4j-core"
     exclude group: "org.apache.logging.log4j", module: "log4j-api"
@@ -123,7 +123,7 @@ dependencies {
   }
   // Modern UI core extensions
   // Markdown (<=3.11.1) / Markflow (>=3.12.0) is required, others are optional
-  additionalRuntimeClasspath(compileOnly("icyllis.modernui:ModernUI-Markflow:${modernui_version}")) {
+  additionalRuntimeClasspath(compileOnly("icyllis.modernui:ModernUI-Markflow:${modernui_core_version}")) {
     exclude group: "org.slf4j", module: "slf4j-api"
     exclude group: "org.apache.logging.log4j", module: "log4j-core"
     exclude group: "org.apache.logging.log4j", module: "log4j-api"
@@ -132,58 +132,6 @@ dependencies {
     exclude group: "com.ibm.icu", module: "icu4j"
     exclude group: "it.unimi.dsi", module: "fastutil"
   }
-}
-```
-
-#### ForgeGradle 5（Forge）
-```groovy
-configurations {
-    library
-    implementation.extendsFrom library
-}
-minecraft.runs.all {
-  lazyToken('minecraft_classpath') {
-    configurations.library.copyRecursive().resolve().collect { it.absolutePath }.join(File.pathSeparator)
-  }
-}
-// Add this block if you have not MixinGradle (https://github.com/SpongePowered/MixinGradle):
-minecraft {
-  runs {
-    client {
-      property 'mixin.env.remapRefMap', 'true'
-      property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
-    }
-    server {
-      property 'mixin.env.remapRefMap', 'true'
-      property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
-    }
-    // apply to data if you have datagen
-  }
-  // You need to regenerate run configurations if you make any changes on this.
-}
-dependencies {
-    library("icyllis.modernui:ModernUI-Core:${modernui_version}") {
-      exclude group: "org.slf4j", module: "slf4j-api"
-      exclude group: "org.apache.logging.log4j", module: "log4j-core"
-      exclude group: "org.apache.logging.log4j", module: "log4j-api"
-      exclude group: "com.google.code.findbugs", module: "jsr305"
-      exclude group: "org.jetbrains", module: "annotations"
-      exclude group: "com.ibm.icu", module: "icu4j"
-      exclude group: "it.unimi.dsi", module: "fastutil"
-    }
-    // Modern UI core extensions
-    // Markdown (<=3.11.1) / Markflow (>=3.12.0) is required, others are optional
-    library("icyllis.modernui:ModernUI-Markflow:${modernui_version}") {
-      exclude group: "org.slf4j", module: "slf4j-api"
-      exclude group: "org.apache.logging.log4j", module: "log4j-core"
-      exclude group: "org.apache.logging.log4j", module: "log4j-api"
-      exclude group: "com.google.code.findbugs", module: "jsr305"
-      exclude group: "org.jetbrains", module: "annotations"
-      exclude group: "com.ibm.icu", module: "icu4j"
-      exclude group: "it.unimi.dsi", module: "fastutil"
-    }
-    // Modern UI for Minecraft Forge
-    implementation fg.deobf("icyllis.modernui:ModernUI-Forge:${minecraft_version}-${modernui_version}.+")
 }
 ```
 
@@ -192,20 +140,16 @@ dependencies {
 请将 `ModernUI` 仓库克隆到本仓库同级目录，并保持二者同步更新。
 
 - 环境要求：
-  - 快照目标（`minecraft_version=26.1-snapshot-1`）：JDK `25`（Gradle 必须运行在 Java 25）
-  - 旧版本目标（`1.21.9`–`1.21.11`）：JDK `21`
+  - JDK `25`（Gradle 必须运行在 Java 25）
   - 查看 Gradle 使用的 Java：`./gradlew --version`（见 `Launcher JVM`）
   - 如有需要，请在运行 Gradle 时设置 `JAVA_HOME`（必须指向 JDK 目录，而不是 `/usr/bin/java`）
-  - macOS 示例：
-    - 快照（JDK 25）：`JAVA_HOME=$(/usr/libexec/java_home -v 25) ./gradlew buildReleaseJars`
-    - 旧版本（JDK 21）：`JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew buildReleaseJars -Pminecraft_version=1.21.11`
+  - macOS 示例：`JAVA_HOME=$(/usr/libexec/java_home -v 25) ./gradlew buildReleaseJars`
 - 一条命令构建可分发 jar：
-  - Fabric：`./gradlew buildReleaseJars -Pminecraft_version=26.1`（默认：`26.1-snapshot-1`）
-  - Forge / NeoForge：使用 `-Pminecraft_version=1.21.11`（26.1 快照目前仅提供 Fabric 配置）
-- 输出位置（可直接用于发布）：`build/release/ModernUI-MC-<mod_version>-{fabric,forge,neoforge}.jar`
+  - `./gradlew buildReleaseJars`
+  - 默认目标为 `26.1.2`；只有在 `ext.modernUiMcProfiles` 添加对应版本后，才需要传入 `-Pminecraft_version=<version>`。
+- 输出位置（可直接用于发布）：`build/release/ModernUI-MC-<mod_version>-{fabric,neoforge}.jar`
 - 运行开发客户端：
   - Fabric：`./gradlew :ModernUI-Fabric:runClient`
-  - Forge：`./gradlew :ModernUI-Forge:runClient`
   - NeoForge：`./gradlew :ModernUI-NeoForge:runClient`
 
 构建 ModernUI-MC 时，通用 jar 不仅包含 ModernUI-MC 本体，也会将 ModernUI 框架及其扩展（不含 Kotlin 扩展）进行 shadow，
@@ -213,11 +157,8 @@ dependencies {
 
 ## 测试
 - 单元测试位于 `common/src/test/java/`。
-- 运行单元测试（旧版本配置，例如 `1.21.11`）：
-  - `JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew :common:test -Pminecraft_version=1.21.11`
-- 运行完整构建（包含测试，旧版本配置）：
-  - `JAVA_HOME=$(/usr/libexec/java_home -v 21) ./gradlew build -Pminecraft_version=1.21.11`
-- 说明：快照目标（例如 `26.1-snapshot-1`）会禁用 `:common` 的独立编译；目前单元测试仅在旧版本配置下运行。
+- 当前 `26.1.2` profile 会禁用 `:common` 的独立编译；CI 使用 `./gradlew buildReleaseJars` 验证发布包构建。
+- 如果添加了能独立编译 `:common` 的 profile，请运行 `./gradlew :common:test -Pminecraft_version=<version>`。
 
 ## 更新日志
 更新日志位于 [changelogs.md](changelogs.md)。

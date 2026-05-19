@@ -9,22 +9,16 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
+env:
+  JAVA_VERSION: "25"
+
 jobs:
   build:
-    name: ${{ matrix.name }}
+    name: Java 25 / Fabric + NeoForge release jars
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: "Java 25 • 26.1 • Fabric"
-            java: "25"
-            minecraft_version: "26.1"
-            gradle_tasks: ":ModernUI-Fabric:build -x test"
-          - name: "Java 21 • 1.21.11 • Fabric/Forge/NeoForge"
-            java: "21"
-            minecraft_version: "1.21.11"
-            gradle_tasks: "build"
 
     steps:
       - name: Checkout
@@ -34,21 +28,29 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: ${{ matrix.java }}
+          java-version: ${{ env.JAVA_VERSION }}
 
-      - name: Set up Gradle (with caching)
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build
+      - name: Build release jars
         run: |
           chmod +x ./gradlew
-          ./gradlew --no-daemon --stacktrace ${{ matrix.gradle_tasks }} -Pminecraft_version=${{ matrix.minecraft_version }}
+          ./gradlew --no-daemon --stacktrace buildReleaseJars
+
+      - name: Upload release jars
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-jars
+          if-no-files-found: error
+          retention-days: 7
+          path: build/release/*.jar
 
       - name: Upload test reports (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports-${{ matrix.java }}-${{ matrix.minecraft_version }}
+          name: test-reports-java-${{ env.JAVA_VERSION }}
           if-no-files-found: ignore
           retention-days: 7
           path: |
